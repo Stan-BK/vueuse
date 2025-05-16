@@ -1,18 +1,25 @@
 <script setup lang="ts">
+import type { BoundaryBehaviorType } from './boundaryBehaviour'
 import { UseDraggable as Draggable } from '@vueuse/components'
 import { isClient, useDraggable } from '@vueuse/core'
 import { shallowRef, useTemplateRef } from 'vue'
 
 const el = useTemplateRef<HTMLElement>('el')
 const handle = useTemplateRef<HTMLElement>('handle')
-
+const body = document.body
 const innerWidth = isClient ? window.innerWidth : 200
 
 const disabled = shallowRef(false)
+const behavior = shallowRef<BoundaryBehaviorType>('damping')
 const { x, y, style } = useDraggable(el, {
   initialValue: { x: innerWidth / 4.2, y: 80 },
   preventDefault: true,
   disabled,
+  containerElement: body,
+  boundaryBehavior: behavior,
+  onEnd() {
+    behavior.value = behavior.value === 'damping' ? 'fixed' : 'damping'
+  },
 })
 </script>
 
@@ -42,6 +49,10 @@ const { x, y, style } = useDraggable(el, {
       👋 Drag me!
       <div class="text-sm opacity-50">
         I am at {{ Math.round(x) }}, {{ Math.round(y) }}
+        <br>
+        My container is the document body
+        <br>
+        Now I will `{{ behavior }}` when over the container boundary
       </div>
     </div>
 

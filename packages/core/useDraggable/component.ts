@@ -1,5 +1,6 @@
 import type { UseDraggableOptions } from '@vueuse/core'
 import type { Position, RenderableComponent } from '../types'
+import type { BoundaryBehaviorType } from './boundaryBehaviour'
 import { isClient, useDraggable, useStorage } from '@vueuse/core'
 import { computed, defineComponent, h, reactive, shallowRef, toValue } from 'vue'
 
@@ -36,11 +37,13 @@ export const UseDraggable = /* #__PURE__ */ defineComponent<UseDraggableProps>({
     'disabled',
     'buttons',
     'containerElement',
+    'boundaryBehavior',
   ] as unknown as undefined,
   setup(props, { slots }) {
     const target = shallowRef()
     const handle = computed(() => props.handle ?? target.value)
     const containerElement = computed(() => props.containerElement as (HTMLElement | SVGElement | null | undefined) ?? undefined)
+    const boundaryBehavior = computed(() => props.boundaryBehavior as BoundaryBehaviorType ?? 'fixed')
     const disabled = computed(() => !!props.disabled)
     const storageValue = props.storageKey && useStorage(
       props.storageKey,
@@ -67,6 +70,7 @@ export const UseDraggable = /* #__PURE__ */ defineComponent<UseDraggableProps>({
       onEnd,
       disabled,
       containerElement,
+      boundaryBehavior,
     }))
 
     return () => {

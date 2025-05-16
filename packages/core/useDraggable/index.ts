@@ -1,9 +1,11 @@
-import type { MaybeRefOrGetter } from 'vue'
+import type { ComputedRef, MaybeRefOrGetter } from 'vue'
 import type { PointerType, Position } from '../types'
-import { isClient, toRefs } from '@vueuse/shared'
+import type { BoundaryBehaviorHandler, BoundaryBehaviorType, ContainerElemInstance } from './boundaryBehaviour'
+import { isClient, toRef, toRefs } from '@vueuse/shared'
 import { computed, ref as deepRef, toValue } from 'vue'
 import { defaultWindow } from '../_configurable'
 import { useEventListener } from '../useEventListener'
+import { getBehaviorHandler } from './boundaryBehaviour'
 
 export interface UseDraggableOptions {
   /**
@@ -47,6 +49,15 @@ export interface UseDraggableOptions {
    * @default undefined
    */
   containerElement?: MaybeRefOrGetter<HTMLElement | SVGElement | null | undefined>
+
+  /**
+   * Behavior when the element is out of the container viewport.
+   * Require containerElement to be set.
+   *
+   * @default 'fixed'
+   * BoundaryBehaviorType: 'fixed' | 'damping'
+   */
+  boundaryBehavior?: MaybeRefOrGetter<BoundaryBehaviorType>
 
   /**
    * Handle that triggers the drag event
@@ -136,9 +147,12 @@ export function useDraggable(
     axis = 'both',
     draggingElement = defaultWindow,
     containerElement,
+    boundaryBehavior,
     handle: draggingHandle = target,
     buttons = [0],
   } = options
+
+  const bbhandler: ComputedRef<BoundaryBehaviorHandler> = getBehaviorHandler(toRef(boundaryBehavior ?? 'fixed'))
 
   const position = deepRef<Position>(
     toValue(initialValue) ?? { x: 0, y: 0 },
@@ -190,13 +204,25 @@ export function useDraggable(
     let { x, y } = position.value
     if (axis === 'x' || axis === 'both') {
       x = e.clientX - pressedDelta.value.x
-      if (container)
-        x = Math.min(Math.max(0, x), container.scrollWidth - targetRect!.width)
+      if (container) {
+        x = bbhandler.value.triggerMoveBehavior({
+          container,
+          targetRect,
+          position: { x, y },
+          axis: 'x',
+        }).x
+      }
     }
     if (axis === 'y' || axis === 'both') {
       y = e.clientY - pressedDelta.value.y
-      if (container)
-        y = Math.min(Math.max(0, y), container.scrollHeight - targetRect!.height)
+      if (container) {
+        y = bbhandler.value.triggerMoveBehavior({
+          container,
+          targetRect,
+          position: { x, y },
+          axis: 'y',
+        }).y
+      }
     }
     position.value = {
       x,
@@ -210,6 +236,17 @@ export function useDraggable(
       return
     if (!pressedDelta.value)
       return
+    const container = toValue(containerElement)
+    if (container) {
+      const res = bbhandler.value.triggerEndBehavior({
+        container,
+        target: toValue(target) as ContainerElemInstance,
+        position: position.value,
+      })
+      if (res) {
+        position.value = res
+      }
+    }
     pressedDelta.value = undefined
     onEnd?.(position.value, e)
     handleEvent(e)
